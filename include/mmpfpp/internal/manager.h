@@ -6,9 +6,10 @@
 #include "object_adapter.h"
 #include "ref_counter.h"
 
+#include <map>
+#include <tuple>
 #include <mutex>
 #include <memory>
-#include <map>
 #include <unordered_map>
 #include <functional>
 
@@ -35,8 +36,8 @@ namespace internal {
 			return MMENO__POSIX_OFFSET(EINVAL);
 
 		_object->__v0 = mg::util::template_random<mg::util::template_seed(__DATE__)>::value;
-		_object->__v1 = std::hash<mm::string_view>()(mm_view(_app_type, _app_type_slen));
-		_object->__v2 = _app_type_slen;
+		_object->__v1 = uint32_t(std::hash<mm::string_view>()(mm_view(_app_type, _app_type_slen)));
+		_object->__v2 = uint32_t(_app_type_slen);
 		_object->__v3 = 0;
 		return 0;
 	}
@@ -48,9 +49,9 @@ namespace internal {
 			return -1;
 		if (_object->__v0 != mg::util::template_random<mg::util::template_seed(__DATE__)>::value)
 			return -1;
-		if (_object->__v1 != std::hash<mm::string_view>()(mm_view(_app_type, _app_type_slen )))
+		if (_object->__v1 != uint32_t(std::hash<mm::string_view>()(mm_view(_app_type, _app_type_slen ))))
 			return -1;
-		if (_object->__v2 != _app_type_slen)
+		if (_object->__v2 != uint32_t(_app_type_slen))
 			return -1;
 		if (_object->__v3 != 0)
 			return -1;
@@ -291,13 +292,21 @@ namespace internal {
 		inline void register_uninstall_callback(mm::string_view, mm::string_view, uninstall_callback _fn);
 		inline void register_objloaded_callback(mm::string_view, mm::string_view, objloaded_callback _fn);
 
-		integer_t create_object(
+		integer_t create_object_ptr(
 			const mm::string_view & _object_id,
 			const mm::string_view & _plugin_id,
 			app_service_adapter & _app_service,
 			iobject_adapter & _adapter,
 			iplugin* & _object
 		);
+
+		template<typename __object_factory>
+		std::tuple<errno_t, std::shared_ptr<typename __object_factory::derive_adapter_t>>
+			create_object(
+				const mm::string_view& _object_id,
+				const mm::string_view& _plugin_id,
+				app_service_adapter& _app_service,
+				__object_factory& _factory);
 	private:
 
 		inline void __deref_plugin(const std::shared_ptr<__plugin_instance>& _inst);
@@ -708,7 +717,7 @@ namespace internal {
 		user_handles_[mm::string{ _type.data(), _type.size(), mm::string_storage_type::large }] = uh;
 	}
 
-	inline manager::errno_t manager::create_object(
+	inline manager::errno_t manager::create_object_ptr(
 		const mm::string_view & _object_id,
 		const mm::string_view & _plugin_id,
 		app_service_adapter & _app_service,
@@ -852,6 +861,42 @@ namespace internal {
 		_object = (_adapter.create_adapt(object, destroy_catch_func));
 		decrementCleanup.cancel();
 		return 0;
+	}
+
+	template<typename __object_factory>
+	inline std::tuple<manager::errno_t, std::shared_ptr<typename __object_factory::derive_adapter_t>>
+		manager::create_object(
+			const mm::string_view& _object_id,
+			const mm::string_view& _plugin_id,
+			app_service_adapter& _app_service,
+            __object_factory& _factory)
+	{
+        iplugin* plug_ptr = nullptr;
+        auto result = create_object_ptr(_object_id, _plugin_id, _app_service, _factory, plug_ptr);
+        if (result < 0)
+			return std::make_tuple(result, 
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+		
+        if (!plug_ptr)
+            return std::make_tuple(errno_t(-1),
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+		
+        auto object_cleanup = megopp::util::scope_cleanup__create([&] {
+            _factory.destroy_adapt(plug_ptr);
+        });
+		
+        auto object = dynamic_cast<typename __object_factory::derive_adapter_t*>(plug_ptr);
+        if (!object)
+            return std::make_tuple(errno_t(-1),
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+
+        auto sp = std::shared_ptr<typename __object_factory::derive_adapter_t>(
+            object, [](typename __object_factory::derive_adapter_t* _p) {
+			__object_factory::instance().destroy_adapt(_p);
+        });
+		
+        object_cleanup.cancel();
+        return std::make_tuple(errno_t(0), sp);
 	}
 
 	inline void manager::__deref_plugin(const std::shared_ptr<__plugin_instance>& _inst)

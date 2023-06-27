@@ -31,6 +31,8 @@ namespace internal {
 	template<typename T, typename U>
 	struct object_adapter : public iobject_adapter
 	{
+        typedef T derive_adapter_t;
+
 		virtual struct iplugin * create_adapt(void * _object, const std::function<mmpf_destroy_func_t> & _dfp)
 		{
 			return new T((U *)_object, _dfp);
@@ -42,7 +44,7 @@ namespace internal {
 
 #define MMPF_ADAPTERCLASS_MEMBER(ADAPTER, SRC) \
 public: \
-	ADAPTER(SRC* _obj, const std::function<mmpf_destroy_func>& _fn): \
+	ADAPTER(SRC* _obj, const std::function<mmpf_destroy_func_t>& _fn): \
 		obj_(_obj), \
 		func_(_fn) \
 	{} \
@@ -53,6 +55,6 @@ public: \
 	} \
 private: \
 	SRC* obj_; \
-	std::function<mmpf_destroy_func> func_;
+	std::function<mmpf_destroy_func_t> func_;
 
 #endif // !MMPFPP_INTERNAL_OBJECT_ADAPTER_H_INCLUDED
