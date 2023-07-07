@@ -17,7 +17,8 @@ namespace internal {
 	{
 		ref_counter() : count_(0), compare_value_(0) {}
 		ref_counter(MemeInteger_t _count):
-			count_(_count)
+			count_(_count),
+            compare_value_(0)
 		{}
 
         inline void set_callback(const std::function<void(const ref_counter&)>& _cb)
@@ -40,8 +41,8 @@ namespace internal {
 			auto owns = _locker.owns_lock();
 			auto cleanup = megopp::util::scope_cleanup__create([&]
 			{
-				if (owns && owns != _locker.owns_lock())
-					_locker.lock();
+				if (!owns)
+					_locker.unlock();
 			});
 
 			if (!owns)
@@ -72,8 +73,14 @@ namespace internal {
 			auto owns = _locker.owns_lock();
 			auto cleanup = megopp::util::scope_cleanup__create([&]
 			{
-				if (owns)
-					_locker.lock();
+				if (owns) {
+					if (!_locker.owns_lock())
+						_locker.lock();
+				}
+				else {
+					if (_locker.owns_lock())
+						_locker.unlock();
+				}
 			});
 
 			if (!owns)
@@ -96,8 +103,8 @@ namespace internal {
 			auto owns = _locker.owns_lock();
             auto cleanup = megopp::util::scope_cleanup__create([&]
             {
-                if (owns)
-                    _locker.lock();
+                if (!owns)
+                    _locker.unlock();
             });
             if (!owns)
                 _locker.lock();

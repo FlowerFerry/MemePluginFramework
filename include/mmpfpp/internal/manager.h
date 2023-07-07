@@ -391,6 +391,19 @@ namespace internal {
 		auto errorCleanup = mg::util::scope_cleanup__create(
 			[this, &_plugin_id] { __remove_plugin(_plugin_id); });
 		
+		do {
+			std::unique_lock<std::mutex> locker(mtx_);
+			auto piit = plugin_insts_.find(_plugin_id);
+			if (piit == plugin_insts_.end()) {
+				// static registration
+
+				auto pi = std::make_shared<__plugin_instance>();
+				pi->id_ = _plugin_id;
+				piit = plugin_insts_.insert(std::make_pair(pi->id_, pi)).first;
+
+			}
+		} while (0);
+
 		mmpf_manage_t provide_manage_object;
 		mmpf_manage_services_t provide_manage_services;
 		mmpf_init_params_t provide_init_params;
@@ -433,12 +446,9 @@ namespace internal {
 			std::unique_lock<std::mutex> locker(mtx_);
 			auto piit = plugin_insts_.find(_plugin_id);
 			if (piit == plugin_insts_.end()) {
-				// static registration
-				
-				auto pi = std::make_shared<__plugin_instance>();
-				pi->id_ = _plugin_id;		
-				piit = plugin_insts_.insert(std::make_pair(pi->id_, pi)).first;
-				
+                __log(mmpf_loglvl_error, mm::c_format(256,
+                    "the plugin initialization process did not find the plugin instance and plugin id(%s)", _plugin_id.data()));
+                return -1;
 			}
 			piit->second->exit_func_ = efunc;
 
@@ -471,6 +481,9 @@ namespace internal {
 					continue;
 				uh = hit->second;
 			} while (0);
+
+			if (!uh)
+				break;
 
 			for (auto& cb_it : uh->objloaded_callbacks_) {
 				try {
@@ -514,8 +527,8 @@ namespace internal {
 		auto dylib = mg::os::dynamic_library::load(_path, err, true);
 		if (!dylib) {
 			__log(mmpf_loglvl_error, mm::c_format(256,
-				"Load dynamic library failed, msg({}), file path(%s)",
-				err, _path.data()));
+				"Load dynamic library failed, msg(%s), file path(%s)",
+				err.data(), _path.data()));
 			return -1;
 		}
 
@@ -579,8 +592,8 @@ namespace internal {
         auto dylib = mg::os::dynamic_library::load(params->path_, err, true);
         if (!dylib) {
             __log(mmpf_loglvl_error, mm::c_format(256,
-                "Load dynamic library failed, msg({}), file path(%s)",
-                err, params->path_.data()));
+                "Load dynamic library failed, msg(%s), file path(%s)",
+                err.data(), params->path_.data()));
             return MMENO__POSIX_OFFSET(ENOENT);
         }
 		
@@ -622,15 +635,28 @@ namespace internal {
         auto instances = plugin_insts_;
         locker.unlock();
         for (auto& it : instances) {
+			if (!it.second->dylib_) {
+                // static inline plugin
+				continue;
+			}
+
 			if (it.second->ref_counter_.is_meet(locker))
 			{
 				try {
 					auto ret = it.second->exit_func_();
-					if (!ret) {
+					if (ret) {
                         __log(mmpf_loglvl_error, mm::c_format(256,
                             "Plugin exit failed; plugin id(%s)", it.first.data())); 
 					}
 					locker.lock();
+					for (auto& o : it.second->objects_) {
+						auto oiit = object_insts_.find(o.first);
+						if (oiit != object_insts_.end())
+						{
+							if (oiit->second == o.second)
+								object_insts_.erase(oiit);
+						}
+					}
 					plugin_insts_.erase(it.first);
 					locker.unlock();
 				}
@@ -657,17 +683,31 @@ namespace internal {
         if (it == plugin_insts_.end())
             return 0;
         auto pi = it->second;
+
+		if (!pi->dylib_) {
+            // static inline plugin
+            return 0;
+        }
+		
         if (pi->ref_counter_.is_meet(locker))
         {
 			locker.unlock();
             try {
                 auto ret = pi->exit_func_();
-                if (!ret) {
+                if (ret) {
                     __log(mmpf_loglvl_error, mm::c_format(256,
                         "Plugin exit failed; plugin id(%s)", _id.data()));
                 }
 				
                 locker.lock();
+                for (auto& o : pi->objects_) {
+                    auto oiit = object_insts_.find(o.first);
+                    if (oiit != object_insts_.end()) 
+					{
+                        if (oiit->second == o.second)
+                            object_insts_.erase(oiit);
+                    }
+                }
                 plugin_insts_.erase(_id);
             }
             catch (std::exception& ex) {
@@ -698,8 +738,8 @@ namespace internal {
 		else {
 			uh = std::make_shared<__user_handle>(*it->second);
 		}
-		uh->uninstall_callbacks_[mm::string{ _caller.data(), _caller.size(), mm::string_storage_type::large }] = _fn;
-		user_handles_[mm::string{ _type.data(), _type.size(), mm::string_storage_type::large }] = uh;
+		uh->uninstall_callbacks_[mm::string{ _caller.data(), _caller.size(), mm::string_storage_t::large }] = _fn;
+		user_handles_[mm::string{ _type.data(), _type.size(), mm::string_storage_t::large }] = uh;
 	}
 
 	inline void manager::register_objloaded_callback(mm::string_view _caller, mm::string_view _type, objloaded_callback _fn)
@@ -713,8 +753,8 @@ namespace internal {
 		else {
 			uh = std::make_shared<__user_handle>(*it->second);
 		}
-		uh->objloaded_callbacks_[mm::string{ _caller.data(), _caller.size(), mm::string_storage_type::large }] = _fn;
-		user_handles_[mm::string{ _type.data(), _type.size(), mm::string_storage_type::large }] = uh;
+		uh->objloaded_callbacks_[mm::string{ _caller.data(), _caller.size(), mm::string_storage_t::large }] = _fn;
+		user_handles_[mm::string{ _type.data(), _type.size(), mm::string_storage_t::large }] = uh;
 	}
 
 	inline manager::errno_t manager::create_object_ptr(
@@ -737,15 +777,6 @@ namespace internal {
             return -1;
         }
 		
-        auto objinst = __find_object_instance_sync(_plugin_id, _object_id);
-        if (!objinst) {
-            locker.unlock();
-            __log(mmpf_loglvl_warning, mm::c_format(256,
-                "The plugin(%s) object(%s) was not found",
-                _plugin_id.to_string().data(), _object_id.to_string().data()));
-            return -1;
-        }
-
 		auto paramit = plugin_params_.find(_plugin_id.to_string());
 		if (paramit == plugin_params_.end()) {
 			locker.unlock();
@@ -768,7 +799,6 @@ namespace internal {
 		if (pluit != plugin_insts_.end())
 			pluinst = pluit->second;
 		
-
 		if (!pluinst) {
             locker.unlock();
 			// If it is a statically registered plug-in, it will not be executed here
@@ -802,6 +832,15 @@ namespace internal {
 		if (_adapter.app_type() != objparam->app_type_)
 		{
 			__log(mmpf_loglvl_warning, "The requested application type is inconsistent");
+			return -1;
+		}
+
+		auto objinst = __find_object_instance_sync(_plugin_id, _object_id);
+		if (!objinst) {
+			locker.unlock();
+			__log(mmpf_loglvl_warning, mm::c_format(256,
+				"The plugin(%s) object(%s) was not found",
+				_plugin_id.to_string().data(), _object_id.to_string().data()));
 			return -1;
 		}
 
@@ -923,8 +962,7 @@ namespace internal {
 		}
 
         auto pluinst   = iit->second;
-		//auto objInsts  = pluinst->objects_;
-        auto objParams = pluparam->objects_;
+		auto objParams = pluparam->objects_;
 		locker.unlock();
 		
 		for (auto& o : objParams) {
@@ -934,7 +972,7 @@ namespace internal {
 
 			__user_handle_ptr uh;
 			do {
-				std::unique_lock<std::mutex> locker(mtx_);
+				std::unique_lock<std::mutex> uh_locker(mtx_);
 				auto hit = user_handles_.find(objparam->app_type_);
 				if (hit == user_handles_.end())
 					continue;
@@ -956,6 +994,14 @@ namespace internal {
                     // TO_DO
                 }
             }
+
+			std::unique_lock<std::mutex> op_locker(mtx_);
+            auto opit = object_params_.find(o.first);
+            if (opit != object_params_.end())
+			{
+				if (opit->second == o.second)
+					object_params_.erase(opit);
+			}
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -972,12 +1018,12 @@ namespace internal {
 		
 		locker.lock();
 		pluparam->status_ = plugin_status_t::unloaded;
-        plugin_insts_.erase(_id);
+        plugin_insts_.erase (_id);
 		plugin_params_.erase(_id);
         return 0;
 	}
 
-	__object_param_ptr manager::__find_object_param_sync(
+	inline __object_param_ptr manager::__find_object_param_sync(
 		const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id)
 	{
         auto ppit = plugin_params_.find(_plugin_id);
@@ -985,13 +1031,13 @@ namespace internal {
             return nullptr;
         
 		auto opit = ppit->second->objects_.find(_object_id);
-        if (opit == object_params_.end())
+        if (opit == ppit->second->objects_.end())
             return nullptr;
 		
         return opit->second;
 	}
 	
-	__object_instance_ptr manager::__find_object_instance_sync(
+	inline __object_instance_ptr manager::__find_object_instance_sync(
 		const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id)
 	{
         auto piit = plugin_insts_.find(_plugin_id);
@@ -999,7 +1045,7 @@ namespace internal {
             return nullptr;
 		
         auto oiit = piit->second->objects_.find(_object_id);
-        if (oiit == object_insts_.end())
+        if (oiit == piit->second->objects_.end())
             return nullptr;
 
         return oiit->second;
@@ -1137,12 +1183,20 @@ namespace internal {
                 objparam = std::make_shared<__object_parameter>();
                 objparam->id_ = _object_id.to_string();
                 object_params_.insert(std::make_pair(objparam->id_, objparam));
+				
+				auto ppit = plugin_params_.find(_plugin_id);
+				if (ppit != plugin_params_.end())
+					ppit->second->objects_.insert(std::make_pair(objparam->id_, objparam));
 			}
 
             if (!objinst) {
                 objinst = std::make_shared<__object_instance>();
                 objinst->id_ = _object_id.to_string();
                 object_insts_.insert(std::make_pair(objinst->id_, objinst));
+				
+                auto piit = plugin_insts_.find(_plugin_id);
+                if (piit != plugin_insts_.end())
+                    piit->second->objects_.insert(std::make_pair(objinst->id_, objinst));
             }
 			
 			objinst->cfunc_		= _params->create_func;

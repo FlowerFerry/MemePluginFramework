@@ -5,7 +5,7 @@
 #include "mmpf/external/plugin.h"
 #include "memepp/string_view.hpp"
 
-namespace mmpf {
+namespace mmpfpp {
 namespace external {
 
 	struct plugin_registrar
@@ -21,7 +21,7 @@ namespace external {
 				return MMENO__POSIX_OFFSET(EINVAL);
 
 			mmpf_build_info_t info;
-			info.programlanguage = mmpf_ifacelang_C;
+			info.ifacelang = mmpf_ifacelang_C;
 			info.build_time = reinterpret_cast<const uint8_t*>(__TIME__);
 			info.build_time_slen = sizeof(__TIME__)-1;
 			info.build_date = reinterpret_cast<const uint8_t*>(__DATE__);

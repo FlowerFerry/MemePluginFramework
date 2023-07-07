@@ -40,7 +40,7 @@ typedef struct mmpf_plugin_t
 	uint32_t __v1;		//!< Plug-in manager usage
 	uint32_t __v2;		//!< Plug-in manager usage
 	uint32_t __v3;		//!< Plug-in manager usage
-	void * obj;
+	void * object;
 } mmpf_plugin_t;
 
 typedef MemeInteger_t mmpf_obj_preproc_func_t(
