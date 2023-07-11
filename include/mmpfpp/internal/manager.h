@@ -6,13 +6,17 @@
 #include "object_adapter.h"
 #include "ref_counter.h"
 
+#include <errno.h>
+
 #include <map>
 #include <tuple>
 #include <mutex>
 #include <memory>
+#include <thread>
 #include <unordered_map>
 #include <functional>
 
+#include <meme/string_fwd.h>
 #include <mego/predef/symbol/likely.h>
 #include <megopp/os/dynamic_library.h>
 #include <megopp/util/scope_cleanup.h>
@@ -30,7 +34,7 @@ namespace internal {
 	namespace mg = megopp;
 
 	inline MemeInteger_t default_plugin_fill_func(
-		mmpf_plugin_t* _object, rsize_t _struct_size, const MemeByte_t* _app_type, rsize_t _app_type_slen)
+                mmpf_plugin_t* _object, mmint_t _struct_size, const MemeByte_t* _app_type, mmint_t _app_type_slen)
 	{
 		if (MEGO_SYMBOL__UNLIKELY(!_object || sizeof(mmpf_plugin_t) > _struct_size))
 			return MMENO__POSIX_OFFSET(EINVAL);
@@ -43,7 +47,7 @@ namespace internal {
 	}
 
 	inline MemeInteger_t default_plugin_valid_func(
-		mmpf_plugin_t* _object, const MemeByte_t* _app_type, rsize_t _app_type_slen)
+                mmpf_plugin_t* _object, const MemeByte_t* _app_type, mmint_t _app_type_slen)
 	{
 		if (!_object)
 			return -1;
@@ -59,7 +63,7 @@ namespace internal {
 	}
 
 	typedef MemeInteger_t plugin_valid_func_t(
-		mmpf_plugin_t* _object, const MemeByte_t* _app_type, rsize_t _app_type_slen);
+                mmpf_plugin_t* _object, const MemeByte_t* _app_type, mmint_t _app_type_slen);
 	typedef plugin_valid_func_t* plugin_valid_func_ptr;
 
 	struct app_service_adapter
@@ -95,10 +99,10 @@ namespace internal {
 		inline MemeInteger_t __provide_invoke(const mm::string_view& _name, void *  _param);
 
 		inline static void __provide_log_callback(
-			mmpf_app_ptr, mmpf_loglvl_t, const uint8_t* _msg, rsize_t _msglen
+			mmpf_app_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen
 		);
 		inline static MemeInteger_t __provide_invoke_callback(
-			mmpf_app_ptr, const uint8_t * _service_name, rsize_t _namelen, void * _service_params
+			mmpf_app_ptr, const uint8_t * _service_name, mmint_t _namelen, void * _service_params
 		);
 
 		std::function<void(mmpf_loglvl_t, const mm::string_view&)> log_fn_;
@@ -137,7 +141,7 @@ namespace internal {
 	}
 
 	inline void app_service_adapter::__provide_log_callback(
-		mmpf_app_ptr _app, mmpf_loglvl_t _lvl, const uint8_t * _msg, rsize_t _msglen)
+		mmpf_app_ptr _app, mmpf_loglvl_t _lvl, const uint8_t * _msg, mmint_t _msglen)
 	{
 		if (!_app)
 			return;
@@ -147,7 +151,7 @@ namespace internal {
 	}
 
 	inline MemeInteger_t app_service_adapter::__provide_invoke_callback(
-		mmpf_app_ptr _app, const uint8_t * _service_name, rsize_t _namelen, void * _service_params)
+		mmpf_app_ptr _app, const uint8_t * _service_name, mmint_t _namelen, void * _service_params)
 	{
 		if (!_app || !_service_name)
 			return MMENO__POSIX_OFFSET(EINVAL);
@@ -334,17 +338,17 @@ namespace internal {
 		);
 
 		inline static void __provide_log_callback(
-			mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, rsize_t _msglen
+                        mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen
 		);
 		inline static integer_t __provide_invoke_callback(
-			mmpf_manage_ptr, const uint8_t * _service_name, rsize_t _namelen, void * _service_params
+			mmpf_manage_ptr, const uint8_t * _service_name, mmint_t _namelen, void * _service_params
 		);
 		inline static integer_t __provide_register_object_callback(
-			mmpf_manage_ptr, const uint8_t * _object_id, rsize_t _id_strlen,
-			const mmpf_register_params * _params, rsize_t _struct_size
+                        mmpf_manage_ptr, const uint8_t * _object_id, mmint_t _id_strlen,
+                        const mmpf_register_params * _params, mmint_t _struct_size
 		);
 		inline static integer_t __provide_register_plugin_info_callback(
-			mmpf_manage_ptr, const mmpf_build_info_t *, rsize_t _struct_size
+                        mmpf_manage_ptr, const mmpf_build_info_t *, mmint_t _struct_size
 		);
 
 		mm::string init_func_name_;
@@ -433,7 +437,7 @@ namespace internal {
 		if (ret) {
 			__log(mmpf_loglvl_error, mm::c_format(256,
 				"plugin initialization function failed and plugin id(%s), errcode(%d)", _plugin_id.data(), int(ret)));
-			return MMENO__POSIX_OFFSET(EOTHER);
+			return ret;
 		}
 		if (!efunc) {
 			__log(mmpf_loglvl_error, mm::c_format(256,
@@ -1075,7 +1079,7 @@ namespace internal {
 	}
 
 	inline void manager::__provide_log_callback(
-		mmpf_manage_ptr _manage, mmpf_loglvl_t _lvl, const uint8_t * _msg, rsize_t _msglen)
+                mmpf_manage_ptr _manage, mmpf_loglvl_t _lvl, const uint8_t * _msg, mmint_t _msglen)
 	{
 		if (!_manage)
 			return;
@@ -1086,7 +1090,7 @@ namespace internal {
 	}
 
 	inline manager::integer_t manager::__provide_invoke_callback(
-		mmpf_manage_ptr _manage, const uint8_t * _service_name, rsize_t _namelen, void * _service_params)
+		mmpf_manage_ptr _manage, const uint8_t * _service_name, mmint_t _namelen, void * _service_params)
 	{
 		if (!_manage)
 			return MMENO__POSIX_OFFSET(EINVAL);
@@ -1099,8 +1103,8 @@ namespace internal {
 	}
 
 	inline manager::integer_t manager::__provide_register_object_callback(
-		mmpf_manage_ptr _manage, const uint8_t * _object_id, rsize_t _id_strlen,
-		const mmpf_register_params_t * _params, rsize_t _struct_size
+                mmpf_manage_ptr _manage, const uint8_t * _object_id, mmint_t _id_strlen,
+                const mmpf_register_params_t * _params, mmint_t _struct_size
 	)
 	{
 		if (!_manage)
@@ -1115,7 +1119,7 @@ namespace internal {
 	}
 
 	inline manager::integer_t manager::__provide_register_plugin_info_callback(
-		mmpf_manage_ptr _manage, const mmpf_build_info_t * _info, rsize_t _struct_size)
+                mmpf_manage_ptr _manage, const mmpf_build_info_t * _info, mmint_t _struct_size)
 	{
 		if (!_manage)
 			return MMENO__POSIX_OFFSET(EINVAL);

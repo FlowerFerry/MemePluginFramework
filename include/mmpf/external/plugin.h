@@ -44,13 +44,13 @@ typedef struct mmpf_plugin_t
 } mmpf_plugin_t;
 
 typedef MemeInteger_t mmpf_obj_preproc_func_t(
-    mmpf_plugin_t* _basic, rsize_t _basic_stsize, const MemeByte_t* _app_type, rsize_t _app_type_slen);
+    mmpf_plugin_t* _basic, mmint_t _basic_stsize, const MemeByte_t* _app_type, mmint_t _app_type_slen);
 typedef mmpf_obj_preproc_func_t * mmpf_obj_preproc_func_ptr;
 
 typedef struct mmpf_obj_params
 {
 	const MemeByte_t * obj_id;
-	rsize_t id_slen;
+        mmint_t id_slen;
 	mmpf_obj_preproc_func_ptr preproc;
 	const struct mmpf_app_services * app_services;
 } mmpf_obj_params_t;
@@ -58,7 +58,7 @@ typedef struct mmpf_obj_params
 typedef struct mmpf_manage_t* mmpf_manage_ptr;
 typedef struct mmpf_app_t* mmpf_app_ptr;
 
-typedef void *  mmpf_create_func_t(mmpf_obj_params *, rsize_t _stsize);
+typedef void *  mmpf_create_func_t(mmpf_obj_params *, mmint_t _stsize);
 typedef mmpf_create_func_t * mmpf_create_func_ptr;
 
 typedef MemeInteger_t mmpf_destroy_func_t(void *);
@@ -71,39 +71,39 @@ typedef mmpf_destroy_func_t * mmpf_destroy_func_ptr;
 typedef struct mmpf_register_params
 {
     const MemeByte_t*  app_type;		//!< 
-    rsize_t app_type_slen;				//!<
-	mmpf_create_func_ptr  create_func;	//!< Create object callback provided by the plugin
-	mmpf_destroy_func_ptr destroy_func;	//!< Destroy object callback provided by the plugin
+    mmint_t app_type_slen;				//!<
+    mmpf_create_func_ptr  create_func;	//!< Create object callback provided by the plugin
+    mmpf_destroy_func_ptr destroy_func;	//!< Destroy object callback provided by the plugin
 } mmpf_register_params_t;
 
 typedef MemeInteger_t mmpf_register_obj_func_t(
     mmpf_manage_ptr, const MemeByte_t * _obj_id, 
-    rsize_t _id_slen, const struct mmpf_register_params *, rsize_t _stsize);
+    mmint_t _id_slen, const struct mmpf_register_params *, mmint_t _stsize);
 typedef mmpf_register_obj_func_t * mmpf_register_obj_func_ptr;
 
 //! @brief The plugin provides its own information to the manager
 typedef struct mmpf_build_info
 {
-	mmpf_version_t version;				//!< Plugin framework version used
-	mmpf_ifacelang ifacelang;           
-	const MemeByte_t * build_date;		//!< Usually use __DATE__ to fill
-    rsize_t build_date_slen;
-	const MemeByte_t * build_time;		//!< Usually use __TIME__ to fill
-    rsize_t build_time_slen;
+    mmpf_version_t version;				//!< Plugin framework version used
+    mmpf_ifacelang ifacelang;
+    const MemeByte_t * build_date;		//!< Usually use __DATE__ to fill
+    mmint_t build_date_slen;
+    const MemeByte_t * build_time;		//!< Usually use __TIME__ to fill
+    mmint_t build_time_slen;
 } mmpf_build_info_t;
 
-typedef MemeInteger_t mmpf_register_info_func_t(mmpf_manage_ptr, const mmpf_build_info_t *, rsize_t _stsize);
+typedef MemeInteger_t mmpf_register_info_func_t(mmpf_manage_ptr, const mmpf_build_info_t *, mmint_t _stsize);
 typedef mmpf_register_info_func_t * mmpf_register_info_func_ptr;
 
 typedef MemeInteger_t mmpf_app_invoke_func_t(
-    mmpf_app_ptr, const MemeByte_t * _service_name, rsize_t _name_slen, void * _service_params);
+    mmpf_app_ptr, const MemeByte_t * _service_name, mmint_t _name_slen, void * _service_params);
 typedef mmpf_app_invoke_func_t * mmpf_app_invoke_func_ptr;
 
 typedef MemeInteger_t mmpf_manager_invoke_func_t(
-    mmpf_manage_ptr, const MemeByte_t * _service_name, rsize_t _name_slen, void * _service_params);
+    mmpf_manage_ptr, const MemeByte_t * _service_name, mmint_t _name_slen, void * _service_params);
 typedef mmpf_manager_invoke_func_t * mmpf_manager_invoke_func_ptr;
 
-typedef void mmpf_applog_func_t(mmpf_app_ptr, mmpf_loglvl_t, const MemeByte_t* _msg, rsize_t _msglen);
+typedef void mmpf_applog_func_t(mmpf_app_ptr, mmpf_loglvl_t, const MemeByte_t* _msg, mmint_t _msglen);
 typedef mmpf_applog_func_t* mmpf_applog_func_ptr;
 
 
@@ -117,7 +117,7 @@ typedef struct mmpf_app_services
 
 } mmpf_app_services_t;
 
-typedef void mmpf_log_func_t(mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, rsize_t _msglen);
+typedef void mmpf_log_func_t(mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen);
 typedef mmpf_log_func_t* mmpf_log_func_ptr;
 
 typedef struct mmpf_manage_services {
@@ -140,7 +140,7 @@ typedef struct mmpf_init_params
 typedef MemeInteger_t mmpf_exit_func_t();
 typedef mmpf_exit_func_t * mmpf_exit_func_ptr;
 
-typedef MemeInteger_t mmpf_init_func_t(const mmpf_init_params_t*, rsize_t, mmpf_exit_func_ptr *);
+typedef MemeInteger_t mmpf_init_func_t(const mmpf_init_params_t*, mmint_t, mmpf_exit_func_ptr *);
 typedef mmpf_init_func_t * mmpf_init_func_ptr;
 
 #ifndef MMPF_API
@@ -159,7 +159,7 @@ typedef mmpf_init_func_t * mmpf_init_func_ptr;
 //! The function of the same name must be implemented by the plugin. 
 //! The manager will look for the function with the same name when loading the dynamic library.
 MMPF_API
-MemeInteger_t mmpf_init(const mmpf_init_params * _params, rsize_t _stsize, mmpf_exit_func_ptr * _func);
+MemeInteger_t mmpf_init(const mmpf_init_params * _params, mmint_t _stsize, mmpf_exit_func_ptr * _func);
 
 MMPF_EXTERN_C_SCOPE_ENDED
 
