@@ -18,6 +18,7 @@
 
 #include <meme/string_fwd.h>
 #include <mego/predef/symbol/likely.h>
+#include <mego/err/ec.h>
 #include <megopp/os/dynamic_library.h>
 #include <megopp/util/scope_cleanup.h>
 #include <memepp/string.hpp>
@@ -37,7 +38,7 @@ namespace internal {
                 mmpf_plugin_t* _object, mmint_t _struct_size, const MemeByte_t* _app_type, mmint_t _app_type_slen)
 	{
 		if (MEGO_SYMBOL__UNLIKELY(!_object || sizeof(mmpf_plugin_t) > _struct_size))
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		_object->__v0 = mg::util::template_random<mg::util::template_seed(__DATE__)>::value;
 		_object->__v1 = uint32_t(std::hash<mm::string_view>()(mm_view(_app_type, _app_type_slen)));
@@ -154,7 +155,7 @@ namespace internal {
 		mmpf_app_ptr _app, const uint8_t * _service_name, mmint_t _namelen, void * _service_params)
 	{
 		if (!_app || !_service_name)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		auto app = reinterpret_cast<app_service_adapter*>(_app);
 		return app->__provide_invoke(mm_view(_service_name, _namelen), _service_params);
@@ -472,7 +473,7 @@ namespace internal {
 			locker.unlock();
 			__log(mmpf_loglvl_warning, mm::c_format(256,
 				"The plugin(%s) has not successfully registered any objects", _plugin_id.data()));
-			return MMENO__POSIX_OFFSET(ECANCELED);
+			return (MGEC__CANCELED);
 		} while (0);
 		errorCleanup.cancel();
 
@@ -524,7 +525,7 @@ namespace internal {
 			locker.unlock();
 			__log(mmpf_loglvl_warning, mm::c_format(256,
 				"Register the same ID(%s) repeatedly", _plugin_id.data()));
-			return MMENO__POSIX_OFFSET(EEXIST);
+			return (MGEC__EXIST);
 		} while (0);
 
 		mm::string err;
@@ -574,7 +575,7 @@ namespace internal {
 	inline manager::errno_t manager::unload(plugin_id_view_t _id)
 	{
         auto ec = __remove_plugin(_id);
-		if (ec == MMENO__POSIX_OFFSET(EBUSY)) {
+		if (ec == (MGEC__BUSY)) {
             return __remove_plugin(_id);
 		}
 		return ec;
@@ -588,7 +589,7 @@ namespace internal {
 			return 0;
         auto pit = plugin_params_.find(_id);
         if (pit == plugin_params_.end())
-            return MMENO__POSIX_OFFSET(ENOENT);
+            return (MGEC__NOENT);
         auto& params = pit->second;
         locker.unlock();
 		
@@ -598,7 +599,7 @@ namespace internal {
             __log(mmpf_loglvl_error, mm::c_format(256,
                 "Load dynamic library failed, msg(%s), file path(%s)",
                 err.data(), params->path_.data()));
-            return MMENO__POSIX_OFFSET(ENOENT);
+            return (MGEC__NOENT);
         }
 		
         auto func = (dylib->get_symbol<mmpf_init_func_t>(init_func_name_.data()));
@@ -606,7 +607,7 @@ namespace internal {
             __log(mmpf_loglvl_error, mm::c_format(256,
                 "Dynamic library without the necessary initialization function; "
                 "file(%s)", params->path_.data()));
-            return MMENO__POSIX_OFFSET(ENOENT);
+            return (MGEC__NOENT);
         }
 		
         auto pi = std::make_shared<__plugin_instance>();
@@ -727,7 +728,7 @@ namespace internal {
 			return 0;
         }
 		else {
-            return MMENO__POSIX_OFFSET(EBUSY);
+            return (MGEC__BUSY);
 		}
 	}
 
@@ -952,7 +953,7 @@ namespace internal {
 		std::unique_lock<std::mutex> locker(mtx_);
 		auto pit = plugin_params_.find(_id);
 		if (pit == plugin_params_.end()) {
-            return MMENO__POSIX_OFFSET(ENOENT);
+            return (MGEC__NOENT);
 		}
         auto pluparam = pit->second;
 		pluparam->status_ = plugin_status_t::unloading;
@@ -1017,7 +1018,7 @@ namespace internal {
                 return ec;
 		}
 		else {
-			return MMENO__POSIX_OFFSET(EBUSY);
+			return (MGEC__BUSY);
 		}
 		
 		locker.lock();
@@ -1093,10 +1094,10 @@ namespace internal {
 		mmpf_manage_ptr _manage, const uint8_t * _service_name, mmint_t _namelen, void * _service_params)
 	{
 		if (!_manage)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 		auto manage = reinterpret_cast<mmpf_manage_t*>(_manage);
 		if (!manage->this_)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		return manage->this_->__provide_invoke(
 			manage->plugin_id_, mm_view(_service_name, _namelen), _service_params);
@@ -1108,10 +1109,10 @@ namespace internal {
 	)
 	{
 		if (!_manage)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 		auto manage = reinterpret_cast<mmpf_manage_t*>(_manage);
 		if (!manage->this_)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		return manage->this_->__provide_register_object(
 			manage->plugin_id_, mm_view(_object_id, _id_strlen), _params, _struct_size
@@ -1122,10 +1123,10 @@ namespace internal {
                 mmpf_manage_ptr _manage, const mmpf_build_info_t * _info, mmint_t _struct_size)
 	{
 		if (!_manage)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 		auto manage = reinterpret_cast<mmpf_manage_t*>(_manage);
 		if (!manage->this_)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		return manage->this_->__provide_register_plugin_info(
 			manage->plugin_id_, _info, _struct_size);
@@ -1135,9 +1136,9 @@ namespace internal {
 		const mm::string_view & _plugin_id, const mmpf_build_info_t* _info, rsize_t _struct_size)
 	{
 		if (_plugin_id.empty() || !_info)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 		if (sizeof(mmpf_build_info_t) > _struct_size)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
         mmpf_version_t version = MMPF_VER_NUMBER;
 		if (MEGO__GET_VERSION_MAJOR(_info->version) != MEGO__GET_VERSION_MAJOR(version)
@@ -1167,9 +1168,9 @@ namespace internal {
 	)
 	{
 		if (_plugin_id.empty() || _object_id.empty())
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 		if (!_params || sizeof(mmpf_register_params_t) > _struct_size)
-			return MMENO__POSIX_OFFSET(EINVAL);
+			return (MGEC__INVAL);
 
 		try {
 			if (!_params->create_func || !_params->destroy_func)
@@ -1177,7 +1178,7 @@ namespace internal {
 				__log(mmpf_loglvl_warning, mm::c_format(256,
 					"The object(%s) creation function or destruction function registered by the plugin(%s) is empty",
 					_object_id.to_string().data(), _plugin_id.to_string().data()));
-				return MMENO__POSIX_OFFSET(EINVAL);
+				return (MGEC__INVAL);
 			}
 
 			std::unique_lock<std::mutex> locker(mtx_);

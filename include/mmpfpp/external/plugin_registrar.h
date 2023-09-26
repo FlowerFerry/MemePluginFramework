@@ -4,6 +4,7 @@
 
 #include "mmpf/external/plugin.h"
 #include "memepp/string_view.hpp"
+#include <mego/err/ec.h>
 
 namespace mmpfpp {
 namespace external {
@@ -18,7 +19,7 @@ namespace external {
 		inline MemeInteger_t init()
 		{
 			if (!params_ || sizeof(mmpf_init_params) > params_struct_size_)
-				return MMENO__POSIX_OFFSET(EINVAL);
+				return (MGEC__INVAL);
 
 			mmpf_build_info_t info;
 			info.ifacelang = mmpf_ifacelang_C;
@@ -29,7 +30,7 @@ namespace external {
 			info.version = MMPF_VER_NUMBER;
 
 			if (!params_->register_plugin_info || !params_->manage_services)
-				return MMENO__POSIX_OFFSET(ECANCELED);
+				return (MGEC__CANCELED);
 
 			return params_->register_plugin_info(params_->manage_services->manage, &info, sizeof(info));
 		}
@@ -40,7 +41,7 @@ namespace external {
 		inline MemeInteger_t register_object(const memepp::string_view& _name, const MemeByte_t* _apptype, rsize_t _apptype_slen)
 		{
 			if (!params_ || sizeof(mmpf_init_params) > params_struct_size_)
-				return MMENO__POSIX_OFFSET(EINVAL);
+				return (MGEC__INVAL);
 
 			mmpf_register_params rp;
 			rp.app_type = _apptype;
@@ -49,7 +50,7 @@ namespace external {
 			rp.destroy_func = _InterfaceHelper::destroy_func;
 
 			if (!params_->register_object || !params_->manage_services)
-				return MMENO__POSIX_OFFSET(ECANCELED);
+				return (MGEC__CANCELED);
 
 			return params_->register_object(params_->manage_services->manage, 
 				reinterpret_cast<const uint8_t*>(_name.data()), _name.size(), &rp, sizeof(rp));
