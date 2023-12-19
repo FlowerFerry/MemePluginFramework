@@ -170,6 +170,8 @@ namespace internal {
 
 	struct object_parameter
 	{
+		inline constexpr const mm::string& id() const noexcept { return id_; }
+		
         std::shared_ptr<object_parameter> copy() const
         {
             auto p = std::make_shared<object_parameter>();
@@ -185,6 +187,8 @@ namespace internal {
 
 	struct __object_instance
 	{
+
+
 		mm::string id_;
 		std::function<mmpf_create_func_t > cfunc_;
 		std::function<mmpf_destroy_func_t> dfunc_;
@@ -210,6 +214,8 @@ namespace internal {
             status_(plugin_status_t::unloaded)
         {}
 
+		inline constexpr const mm::string& id() const noexcept { return id_; }
+		
 		std::shared_ptr<plugin_parameter> copy() const
 		{
             auto p = std::make_shared<plugin_parameter>();
@@ -327,7 +333,7 @@ namespace internal {
 		);
 		
 		template<typename __object_factory>
-		std::tuple<errno_t, std::shared_ptr<typename __object_factory::derive_adapter_t>>
+		std::tuple<std::shared_ptr<typename __object_factory::derive_adapter_t>, errno_t>
 			create_object(
 				const mm::string_view& _object_id,
 				const mm::string_view& _plugin_id,
@@ -949,7 +955,7 @@ namespace internal {
 	}
 
 	template<typename __object_factory>
-	inline std::tuple<manager::errno_t, std::shared_ptr<typename __object_factory::derive_adapter_t>>
+	inline std::tuple<std::shared_ptr<typename __object_factory::derive_adapter_t>, manager::errno_t>
 		manager::create_object(
 			const mm::string_view& _object_id,
 			const mm::string_view& _plugin_id,
@@ -996,7 +1002,6 @@ namespace internal {
 		while (pp) {
 			MEGOPP_UTIL__ON_SCOPE_CLEANUP([&] {
                 auto owns = locker.owns_lock();
-				
                 if (!owns)
 					locker.lock();
 				
@@ -1020,7 +1025,6 @@ namespace internal {
                 MEGOPP_UTIL__ON_SCOPE_CLEANUP([&] 
 				{
                     auto owns = locker.owns_lock();
-
                     if (!owns)
                         locker.lock();
 
