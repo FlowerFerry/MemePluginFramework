@@ -168,12 +168,20 @@ namespace internal {
 		mm::string plugin_id_;
 	};
 
-	struct __object_parameter
+	struct object_parameter
 	{
+        std::shared_ptr<object_parameter> copy() const
+        {
+            auto p = std::make_shared<object_parameter>();
+            p->id_       = id_;
+            p->app_type_ = app_type_;
+            return p;
+        }
+
 		mm::string id_;
 		mm::string app_type_;
 	};
-    typedef std::shared_ptr<__object_parameter> __object_param_ptr;
+    typedef std::shared_ptr<object_parameter> object_param_ptr;
 
 	struct __object_instance
 	{
@@ -193,14 +201,27 @@ namespace internal {
 		unloaded
 	};
 
-	struct __plugin_parameter
+	struct plugin_parameter
 	{
 		typedef mm::string_view object_id_view_t;
-		typedef std::unordered_map<object_id_view_t, __object_param_ptr > objects_t;
+		typedef std::unordered_map<object_id_view_t, object_param_ptr > objects_t;
 
-        __plugin_parameter() :
+        plugin_parameter() :
             status_(plugin_status_t::unloaded)
         {}
+
+		std::shared_ptr<plugin_parameter> copy() const
+		{
+            auto p = std::make_shared<plugin_parameter>();
+            p->id_        = id_;
+            p->path_      = path_;
+            p->builddate_ = builddate_;
+            p->buildtime_ = buildtime_;
+            p->version_   = version_;
+            p->ifacelang_ = ifacelang_;
+            p->objects_   = objects_;
+            return p;
+		}
 
 		mm::string id_;
 		mm::string path_;
@@ -213,7 +234,7 @@ namespace internal {
 
 		plugin_status_t status_;
 	};
-    typedef std::shared_ptr<__plugin_parameter> __plugin_param_ptr;
+    typedef std::shared_ptr<plugin_parameter> plugin_param_ptr;
 
 	struct __plugin_instance
 	{
@@ -270,8 +291,8 @@ namespace internal {
 			const mm::string_view& _object_id)> uninstall_callback;
 		typedef uninstall_callback objloaded_callback;
 
-		typedef std::unordered_map<plugin_id_view_t, __plugin_param_ptr > plugin_params_t;
-		typedef std::unordered_map<object_id_view_t, __object_param_ptr > object_params_t;
+		typedef std::unordered_map<plugin_id_view_t, plugin_param_ptr > plugin_params_t;
+		typedef std::unordered_map<object_id_view_t, object_param_ptr > object_params_t;
 
 		typedef std::unordered_map<mm::string_view, __user_handle_ptr> user_handles_t;
 
@@ -318,11 +339,12 @@ namespace internal {
 			typename __function, 
             bool __is_return_bool = 
                 std::is_same<bool, 
-			        typename std::result_of<__function()>::type>::value
+			        typename std::result_of<__function(
+						const plugin_param_ptr&, const object_param_ptr&)>::type>::value
 		>
         inline void foreach_all_object_parameter(
 			__object_factory& _factory,
-			__function&& _fn);
+			__function&& _fn) const;
 
 	private:
 
@@ -330,7 +352,7 @@ namespace internal {
 
 		inline errno_t __remove_plugin(const mm::string_view& _plugin_id);
 
-        __object_param_ptr __find_object_param_sync(
+        object_param_ptr __find_object_param_sync(
 			const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id);
         __object_instance_ptr __find_object_instance_sync(
             const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id);
@@ -394,10 +416,10 @@ namespace internal {
 	{
 		do {
 			std::unique_lock<std::mutex> locker(mtx_);
-			auto it = plugin_params_.find((_plugin_id));
+			auto it = plugin_params_.find(_plugin_id);
 			if (it == plugin_params_.end())
 			{
-				auto pp = std::make_shared<__plugin_parameter>();
+				auto pp = std::make_shared<plugin_parameter>();
 				pp->status_ = plugin_status_t::loading;
 				pp->id_ = _plugin_id;
 				plugin_params_.emplace(_plugin_id.to_large(), pp);
@@ -458,7 +480,7 @@ namespace internal {
 			return -1;
 		}
 		
-        __plugin_parameter::objects_t object_params;
+        plugin_parameter::objects_t object_params;
 		do {
 			std::unique_lock<std::mutex> locker(mtx_);
 			auto piit = plugin_insts_.find(_plugin_id);
@@ -521,7 +543,10 @@ namespace internal {
 			auto pit = plugin_params_.find(_plugin_id);
             if (pit == plugin_params_.end())
                 break;
-            pit->second->status_ = plugin_status_t::loaded;
+
+			auto pp = pit->second->copy();
+			pp->status_ = plugin_status_t::loaded;
+            pit->second = pp;
 		} while (0);
 		return 0;
 	}
@@ -579,8 +604,12 @@ namespace internal {
 		pluginInstCleanup.cancel();
 
 		locker.lock();
-		auto & params = plugin_params_[_plugin_id];
-		params->path_ = _path;
+		auto& params = plugin_params_[_plugin_id];
+		auto pp = params->copy();
+        pp->path_ = _path;
+        params = pp;
+		
+		//params->path_ = _path;
 		return 0;
 	}
 	
@@ -602,7 +631,7 @@ namespace internal {
         auto pit = plugin_params_.find(_id);
         if (pit == plugin_params_.end())
             return (MGEC__NOENT);
-        auto& params = pit->second;
+        auto params = pit->second;
         locker.unlock();
 		
         mm::string err;
@@ -955,6 +984,71 @@ namespace internal {
         return std::make_tuple(errno_t(0), sp);
 	}
 
+	template<typename __object_factory, typename __function, bool __is_return_bool>
+	inline void manager::foreach_all_object_parameter(
+		__object_factory& _factory, __function&& _fn) const
+	{
+        std::unique_lock<std::mutex> locker(mtx_);
+        if (plugin_params_.empty())
+            return;
+
+        auto pp = plugin_params_.begin()->second;
+		while (pp) {
+			MEGOPP_UTIL__ON_SCOPE_CLEANUP([&] {
+                auto owns = locker.owns_lock();
+				
+                if (!owns)
+					locker.lock();
+				
+                auto ppit = plugin_params_.find(pp->id_);
+                if (ppit != plugin_params_.end())
+                    pp = ppit->second;
+                else
+                    pp = nullptr;
+
+                if (!owns)
+                    locker.unlock();
+			});
+
+			if (pp->objects_.empty())
+				continue;
+			
+            if (!locker.owns_lock())
+                locker.lock();
+            auto op = pp->objects_.begin()->second;
+			while (op) {
+                MEGOPP_UTIL__ON_SCOPE_CLEANUP([&] 
+				{
+                    auto owns = locker.owns_lock();
+
+                    if (!owns)
+                        locker.lock();
+
+                    auto opit = pp->objects_.find(op->id_);
+                    if (opit != pp->objects_.end())
+                        op = opit->second;
+                    else
+                        op = nullptr;
+
+                    if (!owns)
+                        locker.unlock();
+                });
+				
+                if (locker.owns_lock())
+                    locker.unlock();
+				
+                if constexpr (__is_return_bool) 
+				{
+                    if (!_fn(pp, op))
+                        return;
+                }
+                else {
+                    _fn(pp, op);
+                }
+			}
+		}
+	}
+
 	inline void manager::__deref_plugin(const std::shared_ptr<__plugin_instance>& _inst)
 	{
 		_inst->ref_counter_.decrement(mtx_);
@@ -967,7 +1061,8 @@ namespace internal {
 		if (pit == plugin_params_.end()) {
             return (MGEC__NOENT);
 		}
-        auto pluparam = pit->second;
+        auto pluparam = pit->second->copy();
+		pit->second = pluparam;
 		pluparam->status_ = plugin_status_t::unloading;
 		
 		auto iit = plugin_insts_.find(_id);
@@ -1034,13 +1129,18 @@ namespace internal {
 		}
 		
 		locker.lock();
-		pluparam->status_ = plugin_status_t::unloaded;
+		pit = plugin_params_.find(_id);
+        if (pit != plugin_params_.end()) {
+			pluparam = pit->second->copy();
+			pluparam->status_ = plugin_status_t::unloaded;
+			pit->second = pluparam;
+        }
         plugin_insts_.erase (_id);
 		plugin_params_.erase(_id);
         return 0;
 	}
 
-	inline __object_param_ptr manager::__find_object_param_sync(
+	inline object_param_ptr manager::__find_object_param_sync(
 		const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id)
 	{
         auto ppit = plugin_params_.find(_plugin_id);
@@ -1167,10 +1267,14 @@ namespace internal {
 		std::lock_guard<std::mutex> locker(mtx_);
 		auto&params = plugin_params_[_plugin_id.to_string()];
 
-		params->ifacelang_ = _info->ifacelang;
-		params->builddate_ = _info->build_date ? mm_from(_info->build_date, _info->build_date_slen ) : "";
-		params->buildtime_ = _info->build_time ? mm_from(_info->build_time, _info->build_time_slen ) : "";
-		params->version_ = _info->version;
+		auto pp = params->copy();
+
+		pp->ifacelang_ = _info->ifacelang;
+		pp->builddate_ = _info->build_date ? mm_from(_info->build_date, _info->build_date_slen ) : "";
+		pp->buildtime_ = _info->build_time ? mm_from(_info->build_time, _info->build_time_slen ) : "";
+		pp->version_   = _info->version;
+		
+        params = pp;
 		return 0;
 	}
 	
@@ -1196,14 +1300,38 @@ namespace internal {
 			std::unique_lock<std::mutex> locker(mtx_);
             auto objparam = __find_object_param_sync   (_plugin_id, _object_id);
             auto objinst  = __find_object_instance_sync(_plugin_id, _object_id);
+
+			plugin_param_ptr pluparam;
 			if (!objparam) {
-                objparam = std::make_shared<__object_parameter>();
+                objparam = std::make_shared<object_parameter>();
                 objparam->id_ = _object_id.to_string();
+				objparam->app_type_ = _params->app_type;
+				
                 object_params_.insert(std::make_pair(objparam->id_, objparam));
 				
 				auto ppit = plugin_params_.find(_plugin_id);
 				if (ppit != plugin_params_.end())
-					ppit->second->objects_.insert(std::make_pair(objparam->id_, objparam));
+				{
+					pluparam = ppit->second->copy();
+					pluparam->objects_.insert(std::make_pair(objparam->id_, objparam));
+                    ppit->second = pluparam;
+					
+					//ppit->second->objects_.insert(std::make_pair(objparam->id_, objparam));
+				}
+			}
+			else {
+				objparam = objparam->copy();
+				objparam->app_type_ = _params->app_type;
+				
+                object_params_[objparam->id_] = objparam;
+
+                auto ppit = plugin_params_.find(_plugin_id);
+                if (ppit != plugin_params_.end())
+				{
+                    pluparam = ppit->second->copy();
+                    pluparam->objects_.insert(std::make_pair(objparam->id_, objparam));
+                    ppit->second = pluparam;
+                }
 			}
 
             if (!objinst) {
@@ -1218,7 +1346,7 @@ namespace internal {
 			
 			objinst->cfunc_		= _params->create_func;
 			objinst->dfunc_		= _params->destroy_func;
-			objparam->app_type_ = _params->app_type;
+			//objparam->app_type_ = _params->app_type;
 
 			auto piit = plugin_insts_.find(_plugin_id);
 			if (piit != plugin_insts_.end())
