@@ -965,12 +965,12 @@ namespace internal {
         iplugin* plug_ptr = nullptr;
         auto result = create_object_ptr(_object_id, _plugin_id, _app_service, _factory, plug_ptr);
         if (result < 0)
-			return std::make_tuple(result, 
-				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+			return std::make_tuple( 
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{}, result);
 		
         if (!plug_ptr)
-            return std::make_tuple(errno_t(-1),
-				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+            return std::make_tuple(
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{}, errno_t(-1));
 		
         auto object_cleanup = megopp::util::scope_cleanup__create([&] {
             _factory.destroy_adapt(plug_ptr);
@@ -978,8 +978,8 @@ namespace internal {
 		
         auto object = dynamic_cast<typename __object_factory::derive_adapter_t*>(plug_ptr);
         if (!object)
-            return std::make_tuple(errno_t(-1),
-				std::shared_ptr<typename __object_factory::derive_adapter_t>{});
+            return std::make_tuple(
+				std::shared_ptr<typename __object_factory::derive_adapter_t>{}, errno_t(-1));
 
         auto sp = std::shared_ptr<typename __object_factory::derive_adapter_t>(
             object, [](typename __object_factory::derive_adapter_t* _p) {
@@ -987,7 +987,7 @@ namespace internal {
         });
 		
         object_cleanup.cancel();
-        return std::make_tuple(errno_t(0), sp);
+        return std::make_tuple(sp, errno_t(0));
 	}
 
 	template<typename __object_factory, typename __function, bool __is_return_bool>
