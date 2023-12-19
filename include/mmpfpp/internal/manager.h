@@ -168,12 +168,12 @@ namespace internal {
 		mm::string plugin_id_;
 	};
 
-	struct object_parameter
+	struct __object_parameter
 	{
 		mm::string id_;
 		mm::string app_type_;
 	};
-    typedef std::shared_ptr<object_parameter> object_param_ptr;
+    typedef std::shared_ptr<__object_parameter> __object_param_ptr;
 
 	struct __object_instance
 	{
@@ -193,12 +193,12 @@ namespace internal {
 		unloaded
 	};
 
-	struct plugin_parameter
+	struct __plugin_parameter
 	{
 		typedef mm::string_view object_id_view_t;
-		typedef std::unordered_map<object_id_view_t, object_param_ptr > objects_t;
+		typedef std::unordered_map<object_id_view_t, __object_param_ptr > objects_t;
 
-        plugin_parameter() :
+        __plugin_parameter() :
             status_(plugin_status_t::unloaded)
         {}
 
@@ -213,7 +213,7 @@ namespace internal {
 
 		plugin_status_t status_;
 	};
-    typedef std::shared_ptr<plugin_parameter> plugin_param_ptr;
+    typedef std::shared_ptr<__plugin_parameter> __plugin_param_ptr;
 
 	struct __plugin_instance
 	{
@@ -270,8 +270,8 @@ namespace internal {
 			const mm::string_view& _object_id)> uninstall_callback;
 		typedef uninstall_callback objloaded_callback;
 
-		typedef std::unordered_map<plugin_id_view_t, plugin_param_ptr > plugin_params_t;
-		typedef std::unordered_map<object_id_view_t, object_param_ptr > object_params_t;
+		typedef std::unordered_map<plugin_id_view_t, __plugin_param_ptr > plugin_params_t;
+		typedef std::unordered_map<object_id_view_t, __object_param_ptr > object_params_t;
 
 		typedef std::unordered_map<mm::string_view, __user_handle_ptr> user_handles_t;
 
@@ -318,8 +318,7 @@ namespace internal {
 			typename __function, 
             bool __is_return_bool = 
                 std::is_same<bool, 
-			        typename std::result_of<__function(
-						const plugin_parameter&, const object_param_ptr&)>::type>::value
+			        typename std::result_of<__function()>::type>::value
 		>
         inline void foreach_all_object_parameter(
 			__object_factory& _factory,
@@ -331,7 +330,7 @@ namespace internal {
 
 		inline errno_t __remove_plugin(const mm::string_view& _plugin_id);
 
-        object_param_ptr __find_object_param_sync(
+        __object_param_ptr __find_object_param_sync(
 			const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id);
         __object_instance_ptr __find_object_instance_sync(
             const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id);
@@ -398,7 +397,7 @@ namespace internal {
 			auto it = plugin_params_.find((_plugin_id));
 			if (it == plugin_params_.end())
 			{
-				auto pp = std::make_shared<plugin_parameter>();
+				auto pp = std::make_shared<__plugin_parameter>();
 				pp->status_ = plugin_status_t::loading;
 				pp->id_ = _plugin_id;
 				plugin_params_.emplace(_plugin_id.to_large(), pp);
@@ -459,7 +458,7 @@ namespace internal {
 			return -1;
 		}
 		
-        plugin_parameter::objects_t object_params;
+        __plugin_parameter::objects_t object_params;
 		do {
 			std::unique_lock<std::mutex> locker(mtx_);
 			auto piit = plugin_insts_.find(_plugin_id);
@@ -1041,7 +1040,7 @@ namespace internal {
         return 0;
 	}
 
-	inline object_param_ptr manager::__find_object_param_sync(
+	inline __object_param_ptr manager::__find_object_param_sync(
 		const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id)
 	{
         auto ppit = plugin_params_.find(_plugin_id);
@@ -1198,7 +1197,7 @@ namespace internal {
             auto objparam = __find_object_param_sync   (_plugin_id, _object_id);
             auto objinst  = __find_object_instance_sync(_plugin_id, _object_id);
 			if (!objparam) {
-                objparam = std::make_shared<object_parameter>();
+                objparam = std::make_shared<__object_parameter>();
                 objparam->id_ = _object_id.to_string();
                 object_params_.insert(std::make_pair(objparam->id_, objparam));
 				
