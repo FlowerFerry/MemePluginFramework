@@ -24,6 +24,7 @@
 #include <memepp/string.hpp>
 #include <memepp/string_view.hpp>
 #include <memepp/convert/std/string.hpp>
+#include <memepp/convert/common.hpp>
 #include <memepp/hash/std_hash.hpp>
 #include <megopp/util/scope_cleanup.h>
 #include <megopp/util/template_random.h>
