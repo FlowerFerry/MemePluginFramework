@@ -4,6 +4,7 @@
 
 #include <megopp/help/null_mutex.h>
 #include <megopp/util/scope_cleanup.h>
+#include <megopp/util/scope_locker.h>
 
 #include <memory>
 #include <functional>
@@ -38,15 +39,17 @@ namespace internal {
 
 		inline ref_counter& increment(std::unique_lock<_Mtx>& _locker)
 		{
-			auto owns = _locker.owns_lock();
-			auto cleanup = megopp::util::scope_cleanup__create([&]
-			{
-				if (!owns)
-					_locker.unlock();
-			});
+			// auto owns = _locker.owns_lock();
+			// auto cleanup = megopp::util::scope_cleanup__create([&]
+			// {
+			// 	if (!owns)
+			// 		_locker.unlock();
+			// });
 
-			if (!owns)
-				_locker.lock();
+			// if (!owns)
+			// 	_locker.lock();
+
+			mgpp::util::scope_unique_locker<_Mtx> locker(_locker);
 
 			++count_;
 			
@@ -70,27 +73,28 @@ namespace internal {
 
 		inline ref_counter& decrement(std::unique_lock<_Mtx>& _locker)
 		{
-			auto owns = _locker.owns_lock();
-			auto cleanup = megopp::util::scope_cleanup__create([&]
-			{
-				if (owns) {
-					if (!_locker.owns_lock())
-						_locker.lock();
-				}
-				else {
-					if (_locker.owns_lock())
-						_locker.unlock();
-				}
-			});
+			// auto owns = _locker.owns_lock();
+			// auto cleanup = megopp::util::scope_cleanup__create([&]
+			// {
+			// 	if (owns) {
+			// 		if (!_locker.owns_lock())
+			// 			_locker.lock();
+			// 	}
+			// 	else {
+			// 		if (_locker.owns_lock())
+			// 			_locker.unlock();
+			// 	}
+			// });
 
-			if (!owns)
-				_locker.lock();
+			// if (!owns)
+			// 	_locker.lock();
+			mgpp::util::scope_unique_locker<_Mtx> locker(_locker);
 
 			auto count = count_--;
 
 			if (count > compare_value_ && count_ == compare_value_) 
 			{
-				_locker.unlock();
+				locker.unlock();
 
 				if (cb_)
 					(*cb_)(*this);
