@@ -211,8 +211,10 @@ namespace internal {
 		typedef mm::string_view object_id_view_t;
 		typedef std::unordered_map<object_id_view_t, object_param_ptr > objects_t;
 
-        plugin_parameter() :
-            status_(plugin_status_t::unloaded)
+        plugin_parameter() 
+		    : version_(MMPF_VER_NUMBER)
+			, ifacelang_(mmpf_ifacelang_C)
+			, status_(plugin_status_t::unloaded)
         {}
 
 		inline constexpr const mm::string& id() const noexcept { return id_; }
