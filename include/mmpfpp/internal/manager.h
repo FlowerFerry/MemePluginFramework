@@ -165,6 +165,10 @@ namespace internal {
 	class manager;
 	struct mmpf_manage_t
 	{
+		mmpf_manage_t()
+		    : this_(nullptr)
+		{}
+		
 		manager* this_;
 		mm::string plugin_id_;
 	};
