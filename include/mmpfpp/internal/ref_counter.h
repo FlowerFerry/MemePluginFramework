@@ -104,14 +104,15 @@ namespace internal {
 
         inline constexpr bool is_meet(std::unique_lock<_Mtx>& _locker) const noexcept
         {
-			auto owns = _locker.owns_lock();
-            auto cleanup = megopp::util::scope_cleanup__create([&]
-            {
-                if (!owns)
-                    _locker.unlock();
-            });
-            if (!owns)
-                _locker.lock();
+			// auto owns = _locker.owns_lock();
+            // auto cleanup = megopp::util::scope_cleanup__create([&]
+            // {
+            //     if (!owns)
+            //         _locker.unlock();
+            // });
+            // if (!owns)
+            //     _locker.lock();
+			mgpp::util::scope_unique_locker<_Mtx> locker(_locker);
 			
 			return count_ <= compare_value_;
         }
