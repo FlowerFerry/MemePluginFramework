@@ -97,22 +97,22 @@ namespace internal {
 
 	private:
 		
-		inline void __provide_log(mmpf_loglvl_t, const mm::string_view&);
+		inline void __provide_log(mmpf_loglvl_e, const mm::string_view&);
 		inline MemeInteger_t __provide_invoke(const mm::string_view& _name, void *  _param);
 
 		inline static void __provide_log_callback(
-			mmpf_app_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen
+			mmpf_app_ptr, mmpf_loglvl_e, const uint8_t* _msg, mmint_t _msglen
 		);
 		inline static MemeInteger_t __provide_invoke_callback(
 			mmpf_app_ptr, const uint8_t * _service_name, mmint_t _namelen, void * _service_params
 		);
 
-		std::function<void(mmpf_loglvl_t, const mm::string_view&)> log_fn_;
+		std::function<void(mmpf_loglvl_e, const mm::string_view&)> log_fn_;
 		std::function<void(const mm::string_view& _name, void* _param)> invoke_fn_;
 		mmpf_app_services application_services_;
 	};
 
-	inline void app_service_adapter::__provide_log(mmpf_loglvl_t _lvl, const mm::string_view & _msg)
+	inline void app_service_adapter::__provide_log(mmpf_loglvl_e _lvl, const mm::string_view & _msg)
 	{
 		try {
 			if (log_fn_)
@@ -143,7 +143,7 @@ namespace internal {
 	}
 
 	inline void app_service_adapter::__provide_log_callback(
-		mmpf_app_ptr _app, mmpf_loglvl_t _lvl, const uint8_t * _msg, mmint_t _msglen)
+		mmpf_app_ptr _app, mmpf_loglvl_e _lvl, const uint8_t * _msg, mmint_t _msglen)
 	{
 		if (!_app)
 			return;
@@ -241,7 +241,7 @@ namespace internal {
 		mm::string builddate_;
 		mm::string buildtime_;
 		mmpf_version_t version_;
-		mmpf_ifacelang ifacelang_;
+		mmpf_ifacelang_e ifacelang_;
 
         objects_t objects_;
 
@@ -299,7 +299,7 @@ namespace internal {
         typedef mm::string_view plugin_id_view_t;
         typedef mm::string_view object_id_view_t;
 		
-		typedef std::function<void(mmpf_loglvl_t, const mm::string_view&)> log_callback;
+		typedef std::function<void(mmpf_loglvl_e, const mm::string_view&)> log_callback;
 		typedef std::function<void(const mm::string_view& _plugin_id, 
 			const mm::string_view& _object_id)> uninstall_callback;
 		typedef uninstall_callback objloaded_callback;
@@ -370,10 +370,10 @@ namespace internal {
         __object_instance_ptr __find_object_instance_sync(
             const plugin_id_view_t& _plugin_id, const object_id_view_t& _object_id);
 
-		inline void __log(mmpf_loglvl_t, const mm::string_view&);
+		inline void __log(mmpf_loglvl_e, const mm::string_view&);
 		
 		inline void __provide_log(
-			const mm::string_view& _plugin_id, mmpf_loglvl_t, const mm::string_view&);
+			const mm::string_view& _plugin_id, mmpf_loglvl_e, const mm::string_view&);
 		inline integer_t __provide_invoke(
 			const mm::string_view& _plugin_id, const mm::string_view& _service_name, void * _service_params
 		);
@@ -386,7 +386,7 @@ namespace internal {
 		);
 
 		inline static void __provide_log_callback(
-                        mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen
+                        mmpf_manage_ptr, mmpf_loglvl_e, const uint8_t* _msg, mmint_t _msglen
 		);
 		inline static integer_t __provide_invoke_callback(
 			mmpf_manage_ptr, const uint8_t * _service_name, mmint_t _namelen, void * _service_params
@@ -1179,7 +1179,7 @@ namespace internal {
         return oiit->second;
 	}
 
-	inline void manager::__log(mmpf_loglvl_t _lvl, const mm::string_view & _sv)
+	inline void manager::__log(mmpf_loglvl_e _lvl, const mm::string_view & _sv)
 	{
 		try {
 			if (log_fn_)
@@ -1190,7 +1190,7 @@ namespace internal {
 	}
 
 	inline void manager::__provide_log(
-		const mm::string_view & _plugin_id, mmpf_loglvl_t _lvl, const mm::string_view & _sv)
+		const mm::string_view & _plugin_id, mmpf_loglvl_e _lvl, const mm::string_view & _sv)
 	{
 		__log(_lvl, mm::c_format(256, "[%s] %s", 
 			_plugin_id.to_string().data(), _sv.to_string().data()));
@@ -1203,7 +1203,7 @@ namespace internal {
 	}
 
 	inline void manager::__provide_log_callback(
-                mmpf_manage_ptr _manage, mmpf_loglvl_t _lvl, const uint8_t * _msg, mmint_t _msglen)
+                mmpf_manage_ptr _manage, mmpf_loglvl_e _lvl, const uint8_t * _msg, mmint_t _msglen)
 	{
 		if (!_manage)
 			return;
