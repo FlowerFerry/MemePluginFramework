@@ -19,12 +19,14 @@ MMPF_EXTERN_C_SCOPE_START
 typedef MemeInteger_t mmpf_version_t;
 typedef MemeInteger_t mmpf_app_version_t;
 
-typedef enum mmpf_ifacelang
+typedef int32_t mmpf_ifacelang_e;
+enum mmpf_ifacelang
 {
     mmpf_ifacelang_C
-} mmpf_ifacelang_t;
+};
 
-typedef enum mmpf_loglvl
+typedef int32_t mmpf_loglvl_e;
+enum mmpf_loglvl
 {
     mmpf_loglvl_trace,
     mmpf_loglvl_debug,
@@ -32,7 +34,7 @@ typedef enum mmpf_loglvl
     mmpf_loglvl_warning,
     mmpf_loglvl_error,
     mmpf_loglvl_fatal
-} mmpf_loglvl_t;
+};
 
 typedef struct mmpf_plugin_t
 {	
@@ -50,7 +52,7 @@ typedef mmpf_obj_preproc_func_t * mmpf_obj_preproc_func_ptr;
 typedef struct mmpf_obj_params
 {
 	const MemeByte_t * obj_id;
-        mmint_t id_slen;
+    mmint_t id_slen;
 	mmpf_obj_preproc_func_ptr preproc;
 	const struct mmpf_app_services * app_services;
 } mmpf_obj_params_t;
@@ -63,7 +65,6 @@ typedef mmpf_create_func_t * mmpf_create_func_ptr;
 
 typedef MemeInteger_t mmpf_destroy_func_t(void *);
 typedef mmpf_destroy_func_t * mmpf_destroy_func_ptr;
-
 
 //! @brief The structure filled in by the plugin when registering the object.
 //!
@@ -85,7 +86,8 @@ typedef mmpf_register_obj_func_t * mmpf_register_obj_func_ptr;
 typedef struct mmpf_build_info
 {
     mmpf_version_t version;				//!< Plugin framework version used
-    mmpf_ifacelang ifacelang;
+    mmpf_ifacelang_e ifacelang;
+    int32_t res1;                       //!< Reserved
     const MemeByte_t * build_date;		//!< Usually use __DATE__ to fill
     mmint_t build_date_slen;
     const MemeByte_t * build_time;		//!< Usually use __TIME__ to fill
@@ -103,10 +105,10 @@ typedef MemeInteger_t mmpf_manager_invoke_func_t(
     mmpf_manage_ptr, const MemeByte_t * _service_name, mmint_t _name_slen, void * _service_params);
 typedef mmpf_manager_invoke_func_t * mmpf_manager_invoke_func_ptr;
 
-typedef void mmpf_applog_func_t(mmpf_app_ptr, mmpf_loglvl_t, const MemeByte_t* _msg, mmint_t _msglen);
+typedef void mmpf_applog_func_t(mmpf_app_ptr, mmpf_loglvl_e, const MemeByte_t* _msg, mmint_t _msglen);
 typedef mmpf_applog_func_t* mmpf_applog_func_ptr;
 
-
+#pragma pack(push, 4)
 //! @brief Information provided by the manager
 typedef struct mmpf_app_services
 {
@@ -116,9 +118,12 @@ typedef struct mmpf_app_services
 	mmpf_applog_func_ptr log_func;              //!< Log callback provided by the manager
 
 } mmpf_app_services_t;
+#pragma pack(pop)
 
-typedef void mmpf_log_func_t(mmpf_manage_ptr, mmpf_loglvl_t, const uint8_t* _msg, mmint_t _msglen);
+typedef void mmpf_log_func_t(mmpf_manage_ptr, mmpf_loglvl_e, const uint8_t* _msg, mmint_t _msglen);
 typedef mmpf_log_func_t* mmpf_log_func_ptr;
+
+#pragma pack(push, 4)
 
 typedef struct mmpf_manage_services {
 
@@ -128,6 +133,7 @@ typedef struct mmpf_manage_services {
 	mmpf_log_func_ptr log_func;
 
 } mmpf_manage_services_t;
+#pragma pack(pop)
 
 //! @brief The structure passed by the manager for use by the plugin
 typedef struct mmpf_init_params
