@@ -108,7 +108,6 @@ typedef mmpf_manager_invoke_func_t * mmpf_manager_invoke_func_ptr;
 typedef void mmpf_applog_func_t(mmpf_app_ptr, mmpf_loglvl_e, const MemeByte_t* _msg, mmint_t _msglen);
 typedef mmpf_applog_func_t* mmpf_applog_func_ptr;
 
-#pragma pack(push, 4)
 //! @brief Information provided by the manager
 typedef struct mmpf_app_services
 {
@@ -118,12 +117,9 @@ typedef struct mmpf_app_services
 	mmpf_applog_func_ptr log_func;              //!< Log callback provided by the manager
 
 } mmpf_app_services_t;
-#pragma pack(pop)
 
 typedef void mmpf_log_func_t(mmpf_manage_ptr, mmpf_loglvl_e, const uint8_t* _msg, mmint_t _msglen);
 typedef mmpf_log_func_t* mmpf_log_func_ptr;
-
-#pragma pack(push, 4)
 
 typedef struct mmpf_manage_services {
 
@@ -133,7 +129,6 @@ typedef struct mmpf_manage_services {
 	mmpf_log_func_ptr log_func;
 
 } mmpf_manage_services_t;
-#pragma pack(pop)
 
 //! @brief The structure passed by the manager for use by the plugin
 typedef struct mmpf_init_params
