@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+/unit_tests/unit_test/out/build/mmpf_unittest.sln
+/unit_tests/unit_test/out/build/mmpf_unittest.vcxproj
+/unit_tests/unit_test/out/build/mmpf_unittest.vcxproj.filters

@@ -5,15 +5,43 @@ project(mmpf_unittest)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- meme_string (C library + memepp headers) from repo deps ---
-set(MEMESTRING_UNITTEST_ENABLE OFF CACHE BOOL "" FORCE)
-set(MEMESTRING_TEST_ENABLE     OFF CACHE BOOL "" FORCE)
+include(FetchContent)
+
+# Bionic has no separate libpthread/librt, but meme_string links the literal
+# name `rt` on every non-Windows platform. An INTERFACE target of that name
+# makes the link line resolve to nothing.
+if (ANDROID)
+    add_library(rt INTERFACE)
+endif()
+
+# --- meme_string (C library + memepp headers) ---
+set(MEMESTRING_UNITTEST_ENABLE  OFF CACHE BOOL "" FORCE)
+set(MEMESTRING_TEST_ENABLE      OFF CACHE BOOL "" FORCE)
 set(MEMESTRING_BENCHMARK_ENABLE OFF CACHE BOOL "" FORCE)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../deps/MemeString
-                 ${CMAKE_BINARY_DIR}/meme_string_build)
+
+# A sibling working copy is used when present so both repos can be edited
+# together; CI has no such copy and falls back to the pinned download.
+set(MMPF_MEMESTRING_LOCAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/MemeString
+    CACHE PATH "Local meme_string working copy, ignored when absent")
+if (EXISTS ${MMPF_MEMESTRING_LOCAL_DIR}/CMakeLists.txt)
+    set(MMPF_MEMESTRING_SOURCE_DIR ${MMPF_MEMESTRING_LOCAL_DIR})
+    add_subdirectory(${MMPF_MEMESTRING_LOCAL_DIR} ${CMAKE_BINARY_DIR}/meme_string_build)
+else()
+    # Pinned to the develop revision the suite was verified against.
+    set(MMPF_MEMESTRING_FETCH_DIR ${FETCHCONTENT_BASE_DIR}/mmpf-meme_string-src)
+    FetchContent_Declare(
+        MemeString
+        GIT_REPOSITORY https://github.com/FlowerFerry/MemeString.git
+        GIT_TAG        9a54ddf0a983e5590270f3f3eaad8722b75bd28d
+        GIT_SUBMODULES ""
+        GIT_PROGRESS TRUE
+        SOURCE_DIR ${MMPF_MEMESTRING_FETCH_DIR}
+    )
+    FetchContent_MakeAvailable(MemeString)
+    set(MMPF_MEMESTRING_SOURCE_DIR ${MMPF_MEMESTRING_FETCH_DIR})
+endif()
 
 # --- ww898/utf-cpp header-only library (error_message.h dependency) ---
-include(FetchContent)
 FetchContent_Declare(
     utf-cpp
     GIT_REPOSITORY https://github.com/ww898/utf-cpp.git
@@ -24,10 +52,25 @@ if (NOT utf-cpp_POPULATED)
     FetchContent_Populate(utf-cpp)
 endif()
 
-# --- Catch2 v2.13.9 single header (vendored copy, no network) ---
-set(MMPF_CATCH2_SINGLE_INCLUDE
+# --- Catch2 v2.13.9 single header ---
+# Vendored copy first, download only when it is absent.
+set(MMPF_CATCH2_SINGLE_INCLUDE_LOCAL
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/catch2-v2.13.9-single_include
-    CACHE PATH "Catch2 single_include directory")
+    CACHE PATH "Local Catch2 single_include directory, ignored when absent")
+if (EXISTS ${MMPF_CATCH2_SINGLE_INCLUDE_LOCAL}/catch2/catch.hpp)
+    set(MMPF_CATCH2_SINGLE_INCLUDE ${MMPF_CATCH2_SINGLE_INCLUDE_LOCAL})
+else()
+    set(MMPF_CATCH2_FETCH_DIR ${FETCHCONTENT_BASE_DIR}/mmpf-catch2-single_include)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v2.13.9
+        GIT_SUBMODULES ""
+        SOURCE_DIR ${MMPF_CATCH2_FETCH_DIR}
+    )
+    FetchContent_Populate(Catch2)
+    set(MMPF_CATCH2_SINGLE_INCLUDE ${MMPF_CATCH2_FETCH_DIR}/single_include)
+endif()
 
 set(SRC_FILES
     main.cpp
