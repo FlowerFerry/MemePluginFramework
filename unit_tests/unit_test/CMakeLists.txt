@@ -32,7 +32,7 @@ else()
     FetchContent_Declare(
         MemeString
         GIT_REPOSITORY https://github.com/FlowerFerry/MemeString.git
-        GIT_TAG        9a54ddf0a983e5590270f3f3eaad8722b75bd28d
+        GIT_TAG        cf0a7f04f56691a416aedbd577d857f26fb80dbf
         GIT_SUBMODULES ""
         GIT_PROGRESS TRUE
         SOURCE_DIR ${MMPF_MEMESTRING_FETCH_DIR}
