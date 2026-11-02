@@ -94,6 +94,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${MEMESTRING_PROJECT_NAME})
 
+if (ANDROID)
+    target_link_libraries(${PROJECT_NAME} PRIVATE log)
+endif()
+
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8 /bigobj)
 endif()
