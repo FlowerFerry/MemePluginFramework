@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: win msvc x64
+            os: windows-latest
+            test: true
+            configure: -A x64
+
+          - name: win msvc x86
+            os: windows-latest
+            test: true
+            configure: -A Win32
+
+          - name: linux gcc x64
+            os: ubuntu-latest
+            test: true
+
+          - name: linux gcc x86
+            os: ubuntu-latest
+            test: true
+            dpkg_add_arch: i386
+            apt: gcc-multilib g++-multilib
+            configure: -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
+
+          - name: linux gcc aarch64
+            os: ubuntu-latest
+            apt: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            configure: >-
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+
+          - name: linux gcc armv7l
+            os: ubuntu-latest
+            apt: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+            configure: >-
+              -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc
+              -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+              "-DCMAKE_C_FLAGS=-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard"
+              "-DCMAKE_CXX_FLAGS=-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard"
+
+          - name: android arm64-v8a
+            os: ubuntu-latest
+            configure: >-
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
+              -DANDROID_ABI=arm64-v8a
+              -DANDROID_PLATFORM=android-21
+
+          - name: android armeabi-v7a
+            os: ubuntu-latest
+            configure: >-
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
+              -DANDROID_ABI=armeabi-v7a
+              -DANDROID_PLATFORM=android-21
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable foreign architecture
+        if: matrix.dpkg_add_arch
+        run: sudo dpkg --add-architecture ${{ matrix.dpkg_add_arch }} && sudo apt-get update
+
+      - name: Install toolchain
+        if: matrix.apt
+        run: sudo apt-get install -y --no-install-recommends ${{ matrix.apt }}
+
+      - name: Configure
+        run: cmake -B build -S unit_tests/unit_test -DCMAKE_BUILD_TYPE=Release ${{ matrix.configure }}
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      # Cross-compiled binaries cannot execute on an x64 runner, so those jobs
+      # stop at configure + build and prove only that they compile and link.
+      - name: Test
+        if: matrix.test
+        run: ctest --test-dir build -C Release --output-on-failure
