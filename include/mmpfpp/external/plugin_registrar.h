@@ -5,6 +5,7 @@
 #include "mmpf/external/plugin.h"
 #include "memepp/string_view.hpp"
 #include <mego/err/ec.h>
+#include <mego/util/std/stddef.h>
 
 namespace mmpfpp {
 namespace external {
